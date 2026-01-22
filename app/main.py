@@ -224,7 +224,7 @@ def download_file(file_id: str) -> FileResponse:
     return FileResponse(path=file_path, filename=filename, media_type=content_type)
 
 
-@app.get("/files/by-name/{filename}")
+@app.get("/files/by-name/{filename:path}")
 def list_files_by_name(filename: str) -> dict:
     cleanup_expired()
     rows = get_files_by_name(filename)
@@ -244,7 +244,7 @@ def list_files_by_name(filename: str) -> dict:
     return {"items": items}
 
 
-@app.get("/files/by-name/{filename}/download")
+@app.get("/files/download/by-name/{filename:path}")
 def download_file_by_name(filename: str) -> FileResponse:
     cleanup_expired()
     row = get_latest_file_by_name(filename)
@@ -266,7 +266,7 @@ def delete_file(file_id: str) -> dict:
     return {"deleted": True}
 
 
-@app.delete("/files/by-name/{filename}")
+@app.delete("/files/by-name/{filename:path}")
 def delete_file_by_name(filename: str) -> dict:
     cleanup_expired()
     deleted_count = delete_files_by_name(filename)
