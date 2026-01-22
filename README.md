@@ -25,7 +25,10 @@ FastAPI expone documentación automática:
     - `exp` (opcional, segundos)
 - `GET /files` → listar archivos
 - `GET /files/{id}` → descargar archivo
+- `GET /files/by-name/{titulo}` → listar archivos por título (mismo nombre)
+- `GET /files/by-name/{titulo}/download` → descargar por título (usa el más reciente)
 - `DELETE /files/{id}` → eliminar archivo
+- `DELETE /files/by-name/{titulo}` → eliminar por título (borra todos los que coinciden)
 
 ## Ejemplos con curl
 Subir sin expiración:
@@ -48,9 +51,24 @@ Descargar:
 curl -L -o archivo.pdf http://localhost:2020/files/<id>
 ```
 
+Listar por título:
+```bash
+curl http://localhost:2020/files/by-name/archivo.pdf
+```
+
+Descargar por título (más reciente):
+```bash
+curl -L -o archivo.pdf http://localhost:2020/files/by-name/archivo.pdf/download
+```
+
 Eliminar:
 ```bash
 curl -X DELETE http://localhost:2020/files/<id>
+```
+
+Eliminar por título (borra todos los que coinciden):
+```bash
+curl -X DELETE http://localhost:2020/files/by-name/archivo.pdf
 ```
 
 ## Datos persistentes

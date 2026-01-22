@@ -150,6 +150,35 @@ def get_file_row(file_id: str) -> Optional[tuple]:
         return cur.fetchone()
 
 
+def get_files_by_name(filename: str) -> list[tuple]:
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.execute(
+            """
+            SELECT id, filename, content_type, size, created_at, expires_at, path
+            FROM files
+            WHERE filename = ?
+            ORDER BY created_at DESC
+            """,
+            (filename,),
+        )
+        return cur.fetchall()
+
+
+def get_latest_file_by_name(filename: str) -> Optional[tuple]:
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.execute(
+            """
+            SELECT id, filename, content_type, path, expires_at
+            FROM files
+            WHERE filename = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (filename,),
+        )
+        return cur.fetchone()
+
+
 def delete_file_row(file_id: str) -> bool:
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.execute("SELECT path FROM files WHERE id = ?", (file_id,))
@@ -166,6 +195,22 @@ def delete_file_row(file_id: str) -> bool:
         return True
 
 
+def delete_files_by_name(filename: str) -> int:
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.execute("SELECT id, path FROM files WHERE filename = ?", (filename,))
+        rows = cur.fetchall()
+        if not rows:
+            return 0
+        for _file_id, path in rows:
+            try:
+                Path(path).unlink(missing_ok=True)
+            except OSError:
+                pass
+        conn.execute("DELETE FROM files WHERE filename = ?", (filename,))
+        conn.commit()
+        return len(rows)
+
+
 @app.get("/files/{file_id}")
 def download_file(file_id: str) -> FileResponse:
     cleanup_expired()
@@ -179,6 +224,39 @@ def download_file(file_id: str) -> FileResponse:
     return FileResponse(path=file_path, filename=filename, media_type=content_type)
 
 
+@app.get("/files/by-name/{filename}")
+def list_files_by_name(filename: str) -> dict:
+    cleanup_expired()
+    rows = get_files_by_name(filename)
+    if not rows:
+        raise HTTPException(status_code=404, detail="file not found")
+    items = [
+        {
+            "id": row[0],
+            "filename": row[1],
+            "content_type": row[2],
+            "size": row[3],
+            "created_at": row[4],
+            "expires_at": row[5],
+        }
+        for row in rows
+    ]
+    return {"items": items}
+
+
+@app.get("/files/by-name/{filename}/download")
+def download_file_by_name(filename: str) -> FileResponse:
+    cleanup_expired()
+    row = get_latest_file_by_name(filename)
+    if not row:
+        raise HTTPException(status_code=404, detail="file not found")
+    _, found_name, content_type, path, _expires_at = row
+    file_path = Path(path)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="file not found")
+    return FileResponse(path=file_path, filename=found_name, media_type=content_type)
+
+
 @app.delete("/files/{file_id}")
 def delete_file(file_id: str) -> dict:
     cleanup_expired()
@@ -186,3 +264,12 @@ def delete_file(file_id: str) -> dict:
     if not deleted:
         raise HTTPException(status_code=404, detail="file not found")
     return {"deleted": True}
+
+
+@app.delete("/files/by-name/{filename}")
+def delete_file_by_name(filename: str) -> dict:
+    cleanup_expired()
+    deleted_count = delete_files_by_name(filename)
+    if deleted_count == 0:
+        raise HTTPException(status_code=404, detail="file not found")
+    return {"deleted": True, "count": deleted_count}
