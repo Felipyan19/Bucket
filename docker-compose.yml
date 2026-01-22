@@ -1,0 +1,11 @@
+services:
+  bucket:
+    build: .
+    container_name: mini-bucket
+    ports:
+      - "2020:8000"
+    volumes:
+      - bucket_data:/data
+
+volumes:
+  bucket_data:
